@@ -1,0 +1,10 @@
+.Rproj.user
+.Rhistory
+.DS_Store
+archive/
+.Renviron
+rsconnect/
+data/WHO Seasonal Risk Assessment Tool (SAMPLE).xlsx
+
+# Excel temporary / lock files
+~$*.xlsx
