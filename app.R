@@ -40,6 +40,17 @@ helper_files <- file.path(
 
 invisible(lapply(helper_files[file.exists(helper_files)], source))
 
+whomapper_error_message <- function(e) {
+  paste0(
+    "The 'whomapper' package raised an error: ",
+    e$message,
+    ". This may indicate a problem with a recent whomapper update.",
+    " Please contact the whomapper developers ",
+    "(https://github.com/whocov/whomapper/issues) or ",
+    "the WHO Collaboratory (Collaboratory@who.int) for assistance."
+  )
+}
+
 
 # --- Authentication configuration -------------------------------------
 app_username <- Sys.getenv("APP_USERNAME")
@@ -476,12 +487,22 @@ server <- function(input, output, session) {
 
   shape <- reactive({
     req(input$upload_data)
-    whomapper::pull_sfs(
-      adm_level = 1,
-      iso3 = iso3_from_country(), # Aligns with Country / Territory value entered in 1. Describe Your Emergency
-      query_server = TRUE
-    ) %>%
-      rename(`Subnational Level` = adm1_viz_name)
+    tryCatch(
+      whomapper::pull_sfs(
+        adm_level = 1,
+        iso3 = iso3_from_country(), # Aligns with Country / Territory value entered in 1. Describe Your Emergency
+        query_server = TRUE
+      ) %>%
+        rename(`Subnational Level` = adm1_viz_name),
+      error = function(e) {
+        showNotification(
+          whomapper_error_message(e),
+          type = "error",
+          duration = NULL
+        )
+        NULL
+      }
+    )
   })
 
   observeEvent(input$upload_data, {
@@ -833,10 +854,20 @@ server <- function(input, output, session) {
       local({
         nm <- name
         output[[paste0("map_", gsub(" ", "_", nm))]] <- renderPlot({
-          vis_scores(
-            map_sf = map_sf(),
-            value = nm,
-            title = nm
+          tryCatch(
+            vis_scores(
+              map_sf = map_sf(),
+              value = nm,
+              title = nm
+            ),
+            error = function(e) {
+              showNotification(
+                whomapper_error_message(e),
+                type = "error",
+                duration = NULL
+              )
+              NULL
+            }
           )
         })
       })
@@ -903,10 +934,20 @@ server <- function(input, output, session) {
       png_files <- character(0)
 
       for (nm in map_names) {
-        p <- vis_scores(
-          map_sf = map_sf(),
-          value = nm,
-          title = nm
+        p <- tryCatch(
+          vis_scores(
+            map_sf = map_sf(),
+            value = nm,
+            title = nm
+          ),
+          error = function(e) {
+            showNotification(
+              whomapper_error_message(e),
+              type = "error",
+              duration = NULL
+            )
+            stop(e)
+          }
         )
 
         outfile <- file.path(
