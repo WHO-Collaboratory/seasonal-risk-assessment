@@ -204,6 +204,9 @@ sidebar_ui <- function() {
             ),
             tags$li(
               "To test alternative assumptions, update weights or indicator selections in Excel and re-upload the file."
+            ),
+            tags$li(
+              "Your uploaded workbook is processed only for this browser session and is not stored or sent anywhere else."
             )
           ),
 
@@ -437,10 +440,16 @@ server <- function(input, output, session) {
       read_data(input$upload_data$datapath),
       error = function(e) {
         showNotification(
-          paste("Error reading uploaded file:", e$message),
+          paste(
+            "Couldn't read indicator scores from this workbook.",
+            "Make sure you uploaded the WHO Seasonal Risk Assessment Tool",
+            "template, with the '2. Define Indicators' and",
+            "'3. Enter Indicator Scores' sheets intact."
+          ),
           type = "error",
-          duration = 10
+          duration = NULL
         )
+        message("ERROR reading data from upload: ", e$message)
         return(NULL)
       }
     )
@@ -506,32 +515,53 @@ server <- function(input, output, session) {
   })
 
   observeEvent(input$upload_data, {
-    weights$pillar <- readxl::read_excel(
-      input$upload_data$datapath,
-      sheet = "4. Define Weights",
-      range = "B8:C11" # Align with Step 4A. Define Pillar Weights table
-    ) |>
-      as.data.frame()
+    tryCatch(
+      {
+        weights$pillar <- readxl::read_excel(
+          input$upload_data$datapath,
+          sheet = "4. Define Weights",
+          range = "B8:C11" # Align with Step 4A. Define Pillar Weights table
+        ) |>
+          as.data.frame()
 
-    raw_indicator_weights_tbl <- readxl::read_excel(
-      input$upload_data$datapath,
-      sheet = "4. Define Weights",
-      range = cellranger::cell_cols("F:I")
+        raw_indicator_weights_tbl <- readxl::read_excel(
+          input$upload_data$datapath,
+          sheet = "4. Define Weights",
+          range = cellranger::cell_cols("F:I")
+        )
+
+        weights$indicator <- raw_indicator_weights_tbl |> # Align with Step 4B. Define Indicator Weights table
+          # use first row as column names
+          rlang::set_names(unlist(raw_indicator_weights_tbl[1, ])) |>
+          # drop header row
+          dplyr::slice(-1) |>
+          # drop empty rows
+          dplyr::filter(!is.na(Indicator), Indicator != "") |>
+          # validate numeric values
+          dplyr::mutate(
+            `Indicator Weight` = as.numeric(`Indicator Weight`),
+            `Overall Weight` = as.numeric(`Overall Weight`)
+          ) |>
+          as.data.frame()
+      },
+      error = function(e) {
+        showNotification(
+          paste(
+            "Couldn't read pillar and indicator weights from this workbook.",
+            "Make sure you uploaded the WHO Seasonal Risk Assessment Tool",
+            "template, with the '4. Define Weights' sheet intact and in its",
+            "original layout."
+          ),
+          type = "error",
+          duration = NULL
+        )
+        message("ERROR reading weights from upload: ", e$message)
+        weights$pillar <- NULL
+        weights$indicator <- NULL
+      }
     )
 
-    weights$indicator <- raw_indicator_weights_tbl |> # Align with Step 4B. Define Indicator Weights table
-      # use first row as column names
-      rlang::set_names(unlist(raw_indicator_weights_tbl[1, ])) |>
-      # drop header row
-      dplyr::slice(-1) |>
-      # drop empty rows
-      dplyr::filter(!is.na(Indicator), Indicator != "") |>
-      # validate numeric values
-      dplyr::mutate(
-        `Indicator Weight` = as.numeric(`Indicator Weight`),
-        `Overall Weight` = as.numeric(`Overall Weight`)
-      ) |>
-      as.data.frame()
+    req(weights$pillar, weights$indicator)
 
     # Initial validation
     pillar_check <- validate_pillar_weights(weights$pillar)
@@ -1119,10 +1149,10 @@ server <- function(input, output, session) {
     warning_text <- NULL
 
     if (is.null(input$upload_data)) {
-      btn_class <- "btn btn-secondary"
+      btn_class <- "btn btn-primary btn-disabled"
       btn_icon <- icon("lock")
     } else if (!weights_valid()) {
-      btn_class <- "btn btn-secondary"
+      btn_class <- "btn btn-primary btn-disabled"
       btn_icon <- icon("lock")
     }
 
@@ -1302,13 +1332,11 @@ server <- function(input, output, session) {
           }
         },
         error = function(e) {
+          if (inherits(e, "shiny.silent.error")) {
+            stop(e)
+          }
           showNotification(
-            paste(
-              "Download error:",
-              e$message,
-              "\nCall stack:",
-              paste(deparse(sys.calls()), collapse = "\n")
-            ),
+            "Something went wrong preparing the download. Please re-upload your workbook and try again.",
             type = "error",
             duration = NULL
           )
