@@ -10,6 +10,10 @@ A Shiny application that visualizes results from the WHO Seasonal Risk Assessmen
 2. Indicator scores within a pillar are combined using **indicator weights**; the three pillar scores are combined using **pillar weights** to produce a **Composite Risk Score** per region.
 3. The Shiny app lets a user upload a completed workbook, review the resulting scores in tables and maps, and interactively adjust weights (without editing Excel) to test alternative assumptions. This all takes place in-session, without overwriting the uploaded file. Updated weights can be exported as a copy of the workbook.
 
+Indicator scores are normalized, weighted within each pillar, and combined into pillar scores, which are then weighted into a composite score for each subnational area. The three-pillar structure is fixed, while indicators, normalization approaches, and weights are defined by the user. This allows the tool to be adapted to various hazards and geographies without requiring changes to the underlying methodology. Guidance for adaptation is provided in the workbook.
+
+![The Shiny app showing composite risk scores in a table and on a map](www/WHO%20Seasonal%20Risk%20Assessment%20Shiny%20App.png)
+
 ## Repository structure
 
 ```
