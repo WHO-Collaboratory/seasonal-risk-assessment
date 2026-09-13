@@ -16,6 +16,8 @@ vis_scores <- function(
   stopifnot(inherits(map_sf, "sf"))
   stopifnot(value %in% names(map_sf))
 
+  # WHO GHO design system diverging/alt scale: low (good) = navy, high (bad) = red
+  # https://srhdteuwpubsa.z6.web.core.windows.net/gho/data/design-language/design-system/colors/
   risk_palette <- c(
     "#0f2d5b",
     "#53abd0",
@@ -43,7 +45,7 @@ vis_scores <- function(
     ),
     plot.caption = element_text(
       hjust = 0,
-      size = 6,
+      size = 9,
       lineheight = 1.1
     ),
     legend.position = "bottom"
