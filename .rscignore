@@ -1,7 +1,9 @@
 README.md
 .DS_Store
+**/.DS_Store
 .gitignore
 .Renviron
 archive/
+www/archive/
 data/
 rsconnect/
