@@ -646,13 +646,26 @@ server <- function(input, output, session) {
   shape <- reactive({
     req(input$upload_data)
     tryCatch(
-      whomapper::pull_sfs(
-        adm_level = 1,
-        iso3 = iso3_from_country(), # Aligns with Country / Territory value entered in 1. Describe Your Emergency
-        query_server = TRUE
-      ) %>%
-        # Field name is truncated to 10 characters server-side (shapefile/DBF limit)
-        rename(`Subnational Level` = adm1_viz_n),
+      {
+        result <- whomapper::pull_sfs(
+          adm_level = 1,
+          iso3 = iso3_from_country(), # Aligns with Country / Territory value entered in 1. Describe Your Emergency
+          query_server = TRUE
+        ) %>%
+          # Field name is truncated to 10 characters server-side (shapefile/DBF limit)
+          rename(`Subnational Level` = adm1_viz_n)
+
+        if (nrow(result) == 0) {
+          stop(
+            "No subnational boundaries were returned for '",
+            iso3_from_country(),
+            "'. The WHO boundary service may not have data for this ",
+            "country/territory, or the ISO3 code may be unrecognized."
+          )
+        }
+
+        result
+      },
       error = function(e) {
         showNotification(
           whomapper_error_message(e),
@@ -1043,6 +1056,15 @@ server <- function(input, output, session) {
     )
     vis_risk_table(df, values$groupings[["Coping Capacity"]])
   })
+
+  outputOptions(output, "table_overall", suspendWhenHidden = FALSE)
+  outputOptions(output, "table_exposure", suspendWhenHidden = FALSE)
+  outputOptions(output, "table_vulnerability", suspendWhenHidden = FALSE)
+  outputOptions(output, "table_coping_capacity", suspendWhenHidden = FALSE)
+  outputOptions(output, "table_overall_dt", suspendWhenHidden = FALSE)
+  outputOptions(output, "table_exposure_dt", suspendWhenHidden = FALSE)
+  outputOptions(output, "table_vulnerability_dt", suspendWhenHidden = FALSE)
+  outputOptions(output, "table_coping_capacity_dt", suspendWhenHidden = FALSE)
 
   ## --- Maps ----------------------------------------------------------
   observe({
