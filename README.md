@@ -16,7 +16,7 @@ A Shiny application that visualizes results from the WHO Seasonal Risk Assessmen
 
 Indicator scores are normalized, weighted within each pillar, and combined into pillar scores, which are then weighted into a composite score for each subnational area. The three-pillar structure is fixed, while indicators, normalization approaches, and weights are defined by the user. This allows the tool to be adapted to various hazards and geographies without requiring changes to the underlying methodology. Guidance for adaptation is provided in the workbook.
 
-![The Shiny app's Composite Risk Scores tab, showing a results table and Exposure/Vulnerability/Coping Capacity/Composite maps for Ukraine](www/WHO%20Seasonal%20Risk%20Assessment%20Shiny%20App.png)
+![The Shiny app's Composite Risk Scores tab, showing a results table and Exposure/Vulnerability/Coping Capacity/Composite maps for Ukraine](www/WHO%20Seasonal%20Risk%20Assessment%20Tool%20Shiny%20App.png)
 
 ## Repository structure
 
@@ -33,11 +33,11 @@ R/
   vis_scores.R         Renders a choropleth map of a risk score using WHO map styling
 data/
   WHO Seasonal Risk Assessment Tool (TEMPLATE).xlsx   Blank workbook template for analysts to fill in
-  WHO Seasonal Risk Assessment Tool (SAMPLE).xlsx     Filled-in example workbook (git-ignored, kept locally for reference)
+  WHO Seasonal Risk Assessment Tool (EXAMPLE).xlsx     Filled-in example workbook (git-ignored, kept locally for reference)
 www/
   who-logo.png         Logo used in the app header
   WHO Seasonal Risk Assessment Shiny App.png              Screenshot of the app, used in this README
-  WHO Seasonal Risk Assessment Tool Workbook (SAMPLE).png Screenshot of the sample workbook, used in this README
+  WHO Seasonal Risk Assessment Tool Workbook (EXAMPLE).png Screenshot of the example workbook, used in this README
 deploy_app.R           Publishes the app to shinyapps.io via rsconnect
 ```
 
@@ -99,11 +99,11 @@ The workbook (`data/WHO Seasonal Risk Assessment Tool (TEMPLATE).xlsx`) drives a
 
 The app reads sheets 1–4 directly; sheets 5–7 are informational/for cross-checking within Excel and are not required by the app, since risk scores are recomputed in R from sheets 3 and 4.
 
-![A filled-in example workbook, showing the "5. Weighted Indicator Scores" sheet for Ukraine](www/WHO%20Seasonal%20Risk%20Assessment%20Tool%20Workbook%20%28SAMPLE%29.png)
+![A filled-in example workbook, showing the "5. Weighted Indicator Scores" sheet for Ukraine](www/WHO%20Seasonal%20Risk%20Assessment%20Tool%20Workbook%20%28EXAMPLE%29.png)
 
-### Sample subpillars and indicators
+### Example subpillars and indicators
 
-The template's "2. Define Indicators" sheet ships blank — indicators, subpillars, and pillar assignments are entirely up to the analyst. For concrete ideas of what's meant by a "subpillar" or "indicator," here is the set used in the filled-in sample workbook (a cold-weather emergency in Ukraine):
+The template's "2. Define Indicators" sheet ships blank — indicators, subpillars, and pillar assignments are entirely up to the analyst. For concrete ideas of what's meant by a "subpillar" or "indicator," here is the set used in the filled-in example workbook (a cold-weather emergency in Ukraine):
 
 **Exposure**
 - *Hazard*: Average number of days below 10°C from October to March, Severity Score
