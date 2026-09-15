@@ -1,6 +1,5 @@
 # --- Packages ---------------------------------------------------------
 library(shiny)
-library(shinymanager)
 library(bslib)
 library(dplyr)
 library(purrr)
@@ -43,34 +42,14 @@ invisible(lapply(helper_files[file.exists(helper_files)], source))
 whomapper_error_message <- function(e) {
   paste0(
     "The 'whomapper' package raised an error: ",
-    e$message,
+    conditionMessage(e),
     ". This may indicate a problem with a recent whomapper update.",
     " Please contact the whomapper developers ",
     "(https://github.com/whocov/whomapper/issues) or ",
-    "the WHO Collaboratory (Collaboratory@who.int) for assistance."
+    "open an issue on this app's GitHub page ",
+    "(https://github.com/WHO-Collaboratory/seasonal-risk-assessment/issues) for assistance."
   )
 }
-
-
-# --- Authentication configuration -------------------------------------
-app_username <- Sys.getenv("APP_USERNAME")
-app_password <- Sys.getenv("APP_PASSWORD")
-
-if (app_username == "" || app_password == "") {
-  stop(
-    "APP_USERNAME and/or APP_PASSWORD are not set. ",
-    "Define them in a local .Renviron file (see README) or as environment variables ",
-    "in the deployment environment."
-  )
-}
-
-credentials <- data.frame(
-  user = app_username,
-  password = app_password,
-  permissions = "admin",
-  name = "WHO User",
-  stringsAsFactors = FALSE
-)
 
 
 # --- UI ---------------------------------------------------------------
@@ -96,7 +75,7 @@ app_title_ui <- function() {
     class = "d-flex align-items-center w-100 gap-3",
 
     div(
-      class = "d-flex align-items-center gap-2",
+      class = "d-flex align-items-center gap-2 app-title-brand",
       tags$img(
         src = "who-logo.png",
         height = "36px",
@@ -115,7 +94,7 @@ app_title_ui <- function() {
 ## --- Theme -----------------------------------------------------------
 app_theme <- function() {
   bs_theme(
-    bootswatch = "yeti",
+    bootswatch = "flatly",
 
     # Source: https://srhdteuwpubsa.z6.web.core.windows.net/gho/data/design-language/design-system/typography/
     base_font = font_google("Noto Sans"),
@@ -156,14 +135,28 @@ sidebar_ui <- function() {
         title = "Instructions",
         tags$div(
           class = "p-2",
+          tags$h5("About this tool"),
+          tags$p(
+            "This tool helps health authorities compare heat and cold related health risk across regions within a single country. It combines Exposure, Vulnerability, and Coping Capacity indicators into a composite risk score for each geographic unit, so areas can be ranked and prioritized."
+          ),
+          tags$p(
+            "It's built for national ministries of health and public health authorities, with support from WHO country offices and technical partners."
+          ),
+          tags$p(
+            tags$em(
+              "Throughout this app, any use of the word \"country\" should be considered shorthand for a country, area, or territory."
+            )
+          ),
+
           tags$h5("How to use this app"),
           tags$p(
-            "This application displays results from the WHO Seasonal Risk Assessment Excel workbook. ",
+            "This app displays results from the WHO Seasonal Risk Assessment Excel workbook. It does not calculate or modify anything itself."
+          ),
+          tags$p(
             tags$span(
               class = "sidebar-strong",
-              "All indicators, weights, and scores must be defined in Excel before upload."
-            ),
-            " The app does not calculate or modify results."
+              "All indicators, weights, and scores must be finalized in Excel before upload."
+            )
           ),
 
           tags$h5("Quick start"),
@@ -175,12 +168,12 @@ sidebar_ui <- function() {
               ),
               tags$ul(
                 tags$li(
-                  "Select indicators and assign them to Exposure, Vulnerability, or Coping Capacity."
+                  "Assign indicators to Exposure, Vulnerability, or Coping Capacity."
                 ),
-                tags$li("Define pillar weights and indicator weights."),
+                tags$li("Set pillar and indicator weights."),
                 tags$li("Enter indicator scores for each geographic unit."),
                 tags$li(
-                  "Confirm that composite scores are calculated in the workbook."
+                  "Make sure composite scores calculate correctly in the workbook."
                 )
               )
             ),
@@ -192,7 +185,7 @@ sidebar_ui <- function() {
               " using the Upload workbook button above."
             ),
             tags$li(
-              tags$span(class = "sidebar-strong", "View results"),
+              tags$span(class = "sidebar-strong", "Review results"),
               " in the Risk Scores tabs."
             )
           ),
@@ -200,16 +193,25 @@ sidebar_ui <- function() {
           tags$h5("Notes"),
           tags$ul(
             tags$li(
-              "Results are relative and intended for comparison within the same assessment."
+              "Scores are relative. Use them to compare regions within this assessment, not across different assessments or countries."
             ),
             tags$li(
-              "To test alternative assumptions, update weights or indicator selections in Excel and re-upload the file."
+              "To test different assumptions, change weights or indicators in Excel and re-upload."
+            ),
+            tags$li(
+              "Your uploaded workbook is only processed in your browser session. It is not stored or sent anywhere."
             )
           ),
 
           tags$hr(),
           tags$p(tags$em(
-            "Methodological documentation link will be provided here."
+            "Methodology note: For more details, see the ",
+            tags$a(
+              href = "https://github.com/WHO-Collaboratory/seasonal-risk-assessment#how-it-works",
+              target = "_blank",
+              "methodology guide"
+            ),
+            "."
           ))
         )
       ),
@@ -230,14 +232,137 @@ sidebar_ui <- function() {
 }
 
 
+## --- Getting Started / Welcome UI --------------------------------------
+welcome_step_ui <- function(icon_name, title, text) {
+  div(
+    class = "welcome-step",
+    div(class = "welcome-step-icon", icon(icon_name)),
+    tags$h5(title),
+    tags$p(text)
+  )
+}
+
+welcome_screenshot_ui <- function(src, alt, caption) {
+  div(
+    class = "welcome-screenshot",
+    tags$img(src = src, alt = alt, class = "welcome-screenshot-img"),
+    tags$p(class = "welcome-screenshot-caption", caption)
+  )
+}
+
+welcome_ui <- function() {
+  div(
+    class = "welcome-page",
+
+    ### --- Hero -----------------------------------------------------
+    div(
+      class = "welcome-hero",
+      tags$h2("Welcome to the WHO Seasonal Risk Assessment Tool"),
+      tags$p(
+        class = "welcome-lead",
+        "Compare heat- and cold-related health risk across regions within a single country. This app turns a completed WHO Seasonal Risk Assessment Excel workbook into interactive summary tables and choropleth maps, and lets you test alternative pillar and indicator weightings without touching Excel."
+      ),
+      div(
+        class = "d-flex gap-2 flex-wrap",
+        downloadButton(
+          "download_template",
+          label = "Download blank template",
+          icon = icon("file-excel"),
+          class = "btn btn-outline-primary"
+        ),
+        actionButton(
+          "open_upload_modal_landing",
+          label = "Upload your workbook",
+          icon = icon("upload"),
+          class = "btn btn-primary"
+        )
+      )
+    ),
+
+    ### --- How it works -----------------------------------------------
+    tags$h4("How it works", class = "welcome-section-title"),
+    div(
+      class = "welcome-steps",
+      welcome_step_ui(
+        "file-excel",
+        "1. Complete the Excel workbook",
+        "Assign indicators to Exposure, Vulnerability, or Coping Capacity, set pillar and indicator weights, and enter scores for each geographic unit."
+      ),
+      welcome_step_ui(
+        "upload",
+        "2. Upload it here",
+        "Use the Upload workbook button above. Your file is only processed in your browser session — it is not stored or sent anywhere."
+      ),
+      welcome_step_ui(
+        "map-location-dot",
+        "3. Explore results",
+        "Review composite risk scores in tables and on maps, then adjust weights interactively to test alternative assumptions."
+      )
+    ),
+
+    ### --- Screenshots --------------------------------------------------
+    tags$h4("What to expect", class = "welcome-section-title"),
+    div(
+      class = "welcome-screenshots",
+      welcome_screenshot_ui(
+        src = "WHO Seasonal Risk Assessment Tool Workbook (EXAMPLE).png",
+        alt = "A filled-in example WHO Seasonal Risk Assessment Excel workbook",
+        caption = "The Excel workbook: indicators, weights, and scores are defined here before upload."
+      ),
+      welcome_screenshot_ui(
+        src = "WHO Seasonal Risk Assessment Tool Shiny App.png",
+        alt = "The WHO Seasonal Risk Assessment Shiny app, showing a results table and risk maps",
+        caption = "This app: composite risk tables and maps generated from your uploaded workbook."
+      )
+    ),
+
+    tags$p(
+      class = "welcome-footnote",
+      "Methodology note: For more details, see the ",
+      tags$a(
+        href = "https://github.com/WHO-Collaboratory/seasonal-risk-assessment#how-it-works",
+        target = "_blank",
+        "methodology guide"
+      ),
+      "."
+    )
+  )
+}
+
+
 ## --- Main UI ---------------------------------------------------------
 main_ui <- function() {
   tagList(
     tags$style(HTML(
       "
-      .bslib-page-title h1 {
-      color: white !important;
-      font-weight: 600;
+      /* Header bar: light background so the blue WHO logo reads clearly */
+      .navbar.navbar-static-top {
+        background-color: #FFFFFF !important;
+        border-bottom: 3px solid #009CDE;
+      }
+      .navbar.navbar-static-top .app-title-brand,
+      .navbar.navbar-static-top .app-title-brand span {
+        color: #009CDE !important;
+        font-weight: 600;
+      }
+      /* Active tab & pagination accent: Flatly's yellow instead of the app's success green
+         (scoped to these selectors only, so success checkmarks elsewhere stay green) */
+      .nav-tabs .nav-link.active {
+        color: #f39c12 !important;
+      }
+      .pagination .page-link {
+        background-color: #f39c12 !important;
+      }
+      .pagination .page-link:hover {
+        background-color: #b06f09 !important;
+      }
+      .pagination .page-item.active .page-link {
+        background-color: #b06f09 !important;
+      }
+      .pagination .page-item.disabled .page-link {
+        background-color: #f7ba5b !important;
+        color: #7a4e00 !important;
+        cursor: not-allowed;
       }
       .map-grid {
         display: grid;
@@ -261,89 +386,129 @@ main_ui <- function() {
       .bslib-sidebar {
         font-family: system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif;
       }
+
+      /* Getting Started / welcome page */
+      .welcome-page {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 8px 4px 24px;
+      }
+      .welcome-hero {
+        padding-bottom: 8px;
+        margin-bottom: 16px;
+        border-bottom: 1px solid #e5e5e5;
+      }
+      .welcome-lead {
+        max-width: 760px;
+        color: #333333;
+        font-size: 1.05rem;
+      }
+      .welcome-section-title {
+        margin-top: 28px;
+        margin-bottom: 12px;
+      }
+      .welcome-steps {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+      .welcome-step {
+        background-color: #f7fbfd;
+        border: 1px solid #e0eef5;
+        border-radius: 8px;
+        padding: 16px;
+      }
+      .welcome-step-icon {
+        color: #009CDE;
+        font-size: 1.4rem;
+        margin-bottom: 6px;
+      }
+      .welcome-step h5 {
+        margin-bottom: 6px;
+      }
+      .welcome-step p {
+        margin-bottom: 0;
+        color: #595959;
+        font-size: 0.92rem;
+      }
+      .welcome-screenshots {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+      }
+      .welcome-screenshot-img {
+        width: 100%;
+        border: 1px solid #dddddd;
+        border-radius: 6px;
+      }
+      .welcome-screenshot-caption {
+        color: #595959;
+        font-size: 0.88rem;
+        margin-top: 6px;
+      }
+      .welcome-footnote {
+        margin-top: 24px;
+        color: #595959;
+        font-style: italic;
+      }
+      @media (max-width: 900px) {
+        .welcome-steps,
+        .welcome-screenshots {
+          grid-template-columns: 1fr;
+        }
+      }
       "
     )),
-    ### --- Summary Tables ---------------------------------------------
-    fluidRow(
-      column(
-        width = 12,
-        h3("Risk Scores"),
-        tabsetPanel(
-          id = "score_tabs",
 
-          tabPanel(
-            title = "Composite Risk Scores",
-            br(),
-            uiOutput("table_overall")
-          ),
-          tabPanel(
-            "Exposure",
-            br(),
-            uiOutput("table_exposure")
-          ),
-          tabPanel(
-            "Vulnerability",
-            br(),
-            uiOutput("table_vulnerability")
-          ),
-          tabPanel(
-            "Coping Capacity",
-            br(),
-            uiOutput("table_coping_capacity")
-          )
-        )
-      )
+    conditionalPanel(
+      condition = "!output.has_upload",
+      welcome_ui()
     ),
 
-    ## --- Maps --------------------------------------------------------
-    fluidRow(
-      column(
-        width = 12,
-        uiOutput("maps"),
-        uiOutput("map_download_buttons")
+    conditionalPanel(
+      condition = "output.has_upload",
+
+      ### --- Summary Tables ---------------------------------------------
+      fluidRow(
+        column(
+          width = 12,
+          h3("Risk Scores"),
+          tabsetPanel(
+            id = "score_tabs",
+
+            tabPanel(
+              title = "Composite Risk Scores",
+              br(),
+              uiOutput("table_overall")
+            ),
+            tabPanel(
+              "Exposure",
+              br(),
+              uiOutput("table_exposure")
+            ),
+            tabPanel(
+              "Vulnerability",
+              br(),
+              uiOutput("table_vulnerability")
+            ),
+            tabPanel(
+              "Coping Capacity",
+              br(),
+              uiOutput("table_coping_capacity")
+            )
+          )
+        )
+      ),
+
+      ## --- Maps --------------------------------------------------------
+      fluidRow(
+        column(
+          width = 12,
+          uiOutput("maps"),
+          uiOutput("map_download_buttons")
+        )
       )
     )
-  )
-}
-
-
-## --- Custom Login JS -------------------------------------------------
-auth_js <- function() {
-  tags$head(
-    tags$script(HTML(
-      "
-      // Intercept Enter and delay submit
-      $(document).on('keydown', '#auth-user_pwd, #auth-user_id', function(e) {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-
-          // hide any previous error immediately
-          $('.shinymanager-authentication .alert').hide();
-
-          $(this).blur();
-          setTimeout(function() {
-            $('#auth-go_auth').click();
-          }, 150);
-
-          return false;
-        }
-      });
-
-      // As soon as authentication UI starts disappearing, hide error
-      const authObserver = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-          if (!$('.shinymanager-authentication').is(':visible')) {
-            $('.shinymanager-authentication .alert').hide();
-          }
-        });
-      });
-
-      $(document).ready(function() {
-        const target = document.body;
-        authObserver.observe(target, { childList: true, subtree: true });
-      });
-      "
-    ))
   )
 }
 
@@ -355,20 +520,8 @@ global_css <- function() {
       "
       @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&display=swap');
 
-      body,
-      .shinymanager-container,
-      .shinymanager-authentication {
+      body {
         font-family: 'Noto Sans', sans-serif !important;
-      }
-
-      /* smooth visual transition after submit */
-      .shinymanager-authentication {
-        transition: opacity 0.4s ease;
-      }
-
-      .shinymanager-authentication.loading {
-        opacity: 0.6;
-        pointer-events: none;
       }
 
       /* Header buttons */
@@ -409,26 +562,27 @@ global_css <- function() {
 
 
 ## --- Render UI -------------------------------------------------------
-ui <- shinymanager::secure_app(
-  page_sidebar(
-    title = app_title_ui(),
-    theme = app_theme(),
-    fillable = TRUE,
-    sidebar = sidebar_ui(),
-    main_ui()
-  ),
-  head_auth = auth_js(),
-  tags_top = global_css(),
-  language = "en"
+ui <- page_sidebar(
+  title = app_title_ui(),
+  theme = app_theme(),
+  fillable = TRUE,
+  sidebar = sidebar_ui(),
+  global_css(),
+  main_ui()
 )
 
 
 # --- Server -----------------------------------------------------------
 server <- function(input, output, session) {
-  ## --- Authentication ------------------------------------------------
-  shinymanager::secure_server(
-    check_credentials = shinymanager::check_credentials(credentials)
-  )
+  ## --- Welcome/results panel switch ------------------------------------
+  # Drives the conditionalPanel switch between the welcome page and results.
+  # (input.upload_data can't be read directly client-side: fileInput's JS
+  # value is namespaced as "upload_data:shiny.file", so we go through a
+  # server-computed output instead.)
+  output$has_upload <- reactive({
+    !is.null(input$upload_data)
+  })
+  outputOptions(output, "has_upload", suspendWhenHidden = FALSE)
 
   ## --- Data ingestion ------------------------------------------------
   data <- reactive({
@@ -437,10 +591,16 @@ server <- function(input, output, session) {
       read_data(input$upload_data$datapath),
       error = function(e) {
         showNotification(
-          paste("Error reading uploaded file:", e$message),
+          paste(
+            "Couldn't read indicator scores from this workbook.",
+            "Make sure you uploaded the WHO Seasonal Risk Assessment Tool",
+            "template, with the '2. Define Indicators' and",
+            "'3. Enter Indicator Scores' sheets intact."
+          ),
           type = "error",
-          duration = 10
+          duration = NULL
         )
+        message("ERROR reading data from upload: ", e$message)
         return(NULL)
       }
     )
@@ -488,12 +648,26 @@ server <- function(input, output, session) {
   shape <- reactive({
     req(input$upload_data)
     tryCatch(
-      whomapper::pull_sfs(
-        adm_level = 1,
-        iso3 = iso3_from_country(), # Aligns with Country / Territory value entered in 1. Describe Your Emergency
-        query_server = TRUE
-      ) %>%
-        rename(`Subnational Level` = adm1_viz_name),
+      {
+        result <- whomapper::pull_sfs(
+          adm_level = 1,
+          iso3 = iso3_from_country(), # Aligns with Country / Territory value entered in 1. Describe Your Emergency
+          query_server = TRUE
+        ) %>%
+          # Field name is truncated to 10 characters server-side (shapefile/DBF limit)
+          rename(`Subnational Level` = adm1_viz_n)
+
+        if (nrow(result) == 0) {
+          stop(
+            "No subnational boundaries were returned for '",
+            iso3_from_country(),
+            "'. The WHO boundary service may not have data for this ",
+            "country/territory, or the ISO3 code may be unrecognized."
+          )
+        }
+
+        result
+      },
       error = function(e) {
         showNotification(
           whomapper_error_message(e),
@@ -506,32 +680,53 @@ server <- function(input, output, session) {
   })
 
   observeEvent(input$upload_data, {
-    weights$pillar <- readxl::read_excel(
-      input$upload_data$datapath,
-      sheet = "4. Define Weights",
-      range = "B8:C11" # Align with Step 4A. Define Pillar Weights table
-    ) |>
-      as.data.frame()
+    tryCatch(
+      {
+        weights$pillar <- readxl::read_excel(
+          input$upload_data$datapath,
+          sheet = "4. Define Weights",
+          range = "B8:C11" # Align with Step 4A. Define Pillar Weights table
+        ) |>
+          as.data.frame()
 
-    raw_indicator_weights_tbl <- readxl::read_excel(
-      input$upload_data$datapath,
-      sheet = "4. Define Weights",
-      range = cellranger::cell_cols("F:I")
+        raw_indicator_weights_tbl <- readxl::read_excel(
+          input$upload_data$datapath,
+          sheet = "4. Define Weights",
+          range = cellranger::cell_cols("F:I")
+        )
+
+        weights$indicator <- raw_indicator_weights_tbl |> # Align with Step 4B. Define Indicator Weights table
+          # use first row as column names
+          rlang::set_names(unlist(raw_indicator_weights_tbl[1, ])) |>
+          # drop header row
+          dplyr::slice(-1) |>
+          # drop empty rows
+          dplyr::filter(!is.na(Indicator), Indicator != "") |>
+          # validate numeric values
+          dplyr::mutate(
+            `Indicator Weight` = as.numeric(`Indicator Weight`),
+            `Overall Weight` = as.numeric(`Overall Weight`)
+          ) |>
+          as.data.frame()
+      },
+      error = function(e) {
+        showNotification(
+          paste(
+            "Couldn't read pillar and indicator weights from this workbook.",
+            "Make sure you uploaded the WHO Seasonal Risk Assessment Tool",
+            "template, with the '4. Define Weights' sheet intact and in its",
+            "original layout."
+          ),
+          type = "error",
+          duration = NULL
+        )
+        message("ERROR reading weights from upload: ", e$message)
+        weights$pillar <- NULL
+        weights$indicator <- NULL
+      }
     )
 
-    weights$indicator <- raw_indicator_weights_tbl |> # Align with Step 4B. Define Indicator Weights table
-      # use first row as column names
-      rlang::set_names(unlist(raw_indicator_weights_tbl[1, ])) |>
-      # drop header row
-      dplyr::slice(-1) |>
-      # drop empty rows
-      dplyr::filter(!is.na(Indicator), Indicator != "") |>
-      # validate numeric values
-      dplyr::mutate(
-        `Indicator Weight` = as.numeric(`Indicator Weight`),
-        `Overall Weight` = as.numeric(`Overall Weight`)
-      ) |>
-      as.data.frame()
+    req(weights$pillar, weights$indicator)
 
     # Initial validation
     pillar_check <- validate_pillar_weights(weights$pillar)
@@ -732,15 +927,39 @@ server <- function(input, output, session) {
   })
 
   ## --- Tables --------------------------------------------------------
-  no_workbook_message <- function() {
+  no_workbook_message <- function(content) {
     tagList(
       tags$h4("No workbook uploaded"),
       tags$p(
-        "To view risk scores, upload a completed WHO Seasonal Risk Assessment Excel workbook ",
+        paste0(
+          "To view ",
+          content,
+          ", upload a completed WHO Seasonal Risk Assessment Excel workbook "
+        ),
         "using the Upload workbook button in the upper righthand corner."
       ),
       tags$p(
         "The workbook must include defined indicators, weights, and scores. "
+      )
+    )
+  }
+
+  no_workbook_weights_message <- function(label) {
+    tags$div(
+      class = "p-2",
+      tags$h5("No workbook uploaded"),
+      tags$p(
+        paste0(
+          label,
+          " are defined in the Seasonal Risk Assessment Excel workbook."
+        )
+      ),
+      tags$p(
+        paste0(
+          "Upload a completed workbook to view and review ",
+          tolower(label),
+          "."
+        )
       )
     )
   }
@@ -751,7 +970,7 @@ server <- function(input, output, session) {
 
   output$table_overall <- renderUI({
     if (is.null(input$upload_data)) {
-      return(no_workbook_message())
+      return(no_workbook_message("the composite risk score table"))
     }
     if (!weights_valid()) {
       return(weights_invalid_message())
@@ -776,7 +995,7 @@ server <- function(input, output, session) {
 
   output$table_exposure <- renderUI({
     if (is.null(input$upload_data)) {
-      return(no_workbook_message())
+      return(no_workbook_message("the exposure indicator table"))
     }
     if (!weights_valid()) {
       return(weights_invalid_message())
@@ -798,7 +1017,7 @@ server <- function(input, output, session) {
 
   output$table_vulnerability <- renderUI({
     if (is.null(input$upload_data)) {
-      return(no_workbook_message())
+      return(no_workbook_message("the vulnerability indicator table"))
     }
     if (!weights_valid()) {
       return(weights_invalid_message())
@@ -820,7 +1039,7 @@ server <- function(input, output, session) {
 
   output$table_coping_capacity <- renderUI({
     if (is.null(input$upload_data)) {
-      return(no_workbook_message())
+      return(no_workbook_message("the coping capacity indicator table"))
     }
     if (!weights_valid()) {
       return(weights_invalid_message())
@@ -839,6 +1058,15 @@ server <- function(input, output, session) {
     )
     vis_risk_table(df, values$groupings[["Coping Capacity"]])
   })
+
+  outputOptions(output, "table_overall", suspendWhenHidden = FALSE)
+  outputOptions(output, "table_exposure", suspendWhenHidden = FALSE)
+  outputOptions(output, "table_vulnerability", suspendWhenHidden = FALSE)
+  outputOptions(output, "table_coping_capacity", suspendWhenHidden = FALSE)
+  outputOptions(output, "table_overall_dt", suspendWhenHidden = FALSE)
+  outputOptions(output, "table_exposure_dt", suspendWhenHidden = FALSE)
+  outputOptions(output, "table_vulnerability_dt", suspendWhenHidden = FALSE)
+  outputOptions(output, "table_coping_capacity_dt", suspendWhenHidden = FALSE)
 
   ## --- Maps ----------------------------------------------------------
   observe({
@@ -974,18 +1202,7 @@ server <- function(input, output, session) {
   ## --- Weight Tables UI ----------------------------------------------
   output$pillar_weights <- renderUI({
     if (is.null(input$upload_data)) {
-      return(
-        tags$div(
-          class = "p-2",
-          tags$h5("No workbook uploaded"),
-          tags$p(
-            "Pillar weights are defined in the Seasonal Risk Assessment Excel workbook."
-          ),
-          tags$p(
-            "Upload a completed workbook to view and review pillar weights."
-          )
-        )
-      )
+      return(no_workbook_weights_message("Pillar weights"))
     }
 
     req(weights$pillar)
@@ -1009,18 +1226,7 @@ server <- function(input, output, session) {
 
   output$indicator_weights <- renderUI({
     if (is.null(input$upload_data)) {
-      return(
-        tags$div(
-          class = "p-2",
-          tags$h5("No workbook uploaded"),
-          tags$p(
-            "Indicator weights are defined in the Seasonal Risk Assessment Excel workbook."
-          ),
-          tags$p(
-            "Upload a completed workbook to view and review indicator weights."
-          )
-        )
-      )
+      return(no_workbook_weights_message("Indicator weights"))
     }
 
     req(weights$indicator)
@@ -1094,7 +1300,7 @@ server <- function(input, output, session) {
   })
 
   ## --- Workbook upload/download --------------------------------------
-  observeEvent(input$open_upload_modal, {
+  show_upload_modal <- function() {
     showModal(
       modalDialog(
         title = "Upload WHO Seasonal Risk Assessment workbook",
@@ -1111,7 +1317,22 @@ server <- function(input, output, session) {
         easyClose = TRUE
       )
     )
-  })
+  }
+
+  observeEvent(input$open_upload_modal, show_upload_modal())
+  observeEvent(input$open_upload_modal_landing, show_upload_modal())
+
+  output$download_template <- downloadHandler(
+    filename = function() {
+      "WHO_Seasonal_Risk_Assessment_Tool_TEMPLATE.xlsx"
+    },
+    content = function(file) {
+      file.copy(
+        file.path("data", "WHO Seasonal Risk Assessment Tool (TEMPLATE).xlsx"),
+        file
+      )
+    }
+  )
 
   output$header_download_button <- renderUI({
     btn_class <- "btn btn-primary"
@@ -1119,10 +1340,10 @@ server <- function(input, output, session) {
     warning_text <- NULL
 
     if (is.null(input$upload_data)) {
-      btn_class <- "btn btn-secondary"
+      btn_class <- "btn btn-primary btn-disabled"
       btn_icon <- icon("lock")
     } else if (!weights_valid()) {
-      btn_class <- "btn btn-secondary"
+      btn_class <- "btn btn-primary btn-disabled"
       btn_icon <- icon("lock")
     }
 
@@ -1302,13 +1523,11 @@ server <- function(input, output, session) {
           }
         },
         error = function(e) {
+          if (inherits(e, "shiny.silent.error")) {
+            stop(e)
+          }
           showNotification(
-            paste(
-              "Download error:",
-              e$message,
-              "\nCall stack:",
-              paste(deparse(sys.calls()), collapse = "\n")
-            ),
+            "Something went wrong preparing the download. Please re-upload your workbook and try again.",
             type = "error",
             duration = NULL
           )

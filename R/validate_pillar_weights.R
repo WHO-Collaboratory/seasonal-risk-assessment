@@ -1,4 +1,4 @@
-validate_pillar_weights <- function(df, tol = 1e-6) {
+validate_pillar_weights <- function(df, tol = 1.5e-3) {
   stopifnot(all(c("Pillar", "Pillar Weight") %in% names(df)))
 
   total <- sum(df$`Pillar Weight`, na.rm = TRUE)

@@ -23,7 +23,7 @@ rsconnect::setAccountInfo(
 
 rsconnect::deployApp(
   account = Sys.getenv("USERNAME"),
-  appName = "riskassess",
+  appName = "seasonal-risk-assessment",
   appTitle = "WHO Seasonal Risk Assessment Tool",
   appFiles = c(
     "app.R",

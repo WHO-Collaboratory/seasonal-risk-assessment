@@ -16,6 +16,8 @@ vis_scores <- function(
   stopifnot(inherits(map_sf, "sf"))
   stopifnot(value %in% names(map_sf))
 
+  # WHO GHO design system diverging/alt scale: low (good) = navy, high (bad) = red
+  # https://srhdteuwpubsa.z6.web.core.windows.net/gho/data/design-language/design-system/colors/
   risk_palette <- c(
     "#0f2d5b",
     "#53abd0",
@@ -28,6 +30,18 @@ vis_scores <- function(
     region = region,
     data_source = data_source
   )[[1]]
+
+  # whomapper's disclaimer text is authored as long unwrapped lines, which
+  # overflow past the plot edge and get cut off at typical map widths. Wrap
+  # each line so the caption stays inside the plot regardless of output size.
+  disclaimer_labs$caption <- paste(
+    vapply(
+      strsplit(disclaimer_labs$caption, "\n")[[1]],
+      function(line) paste(strwrap(line, width = 100), collapse = "\n"),
+      character(1)
+    ),
+    collapse = "\n"
+  )
 
   who_map_text_theme <- theme(
     plot.title = element_text(
@@ -43,7 +57,7 @@ vis_scores <- function(
     ),
     plot.caption = element_text(
       hjust = 0,
-      size = 6,
+      size = 9,
       lineheight = 1.1
     ),
     legend.position = "bottom"

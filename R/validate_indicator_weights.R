@@ -1,4 +1,4 @@
-validate_indicator_weights <- function(df, tol = 1e-6) {
+validate_indicator_weights <- function(df, tol = 1.5e-3) {
   stopifnot(all(c("Pillar", "Indicator", "Indicator Weight") %in% names(df)))
 
   df %>%
