@@ -31,6 +31,18 @@ vis_scores <- function(
     data_source = data_source
   )[[1]]
 
+  # whomapper's disclaimer text is authored as long unwrapped lines, which
+  # overflow past the plot edge and get cut off at typical map widths. Wrap
+  # each line so the caption stays inside the plot regardless of output size.
+  disclaimer_labs$caption <- paste(
+    vapply(
+      strsplit(disclaimer_labs$caption, "\n")[[1]],
+      function(line) paste(strwrap(line, width = 100), collapse = "\n"),
+      character(1)
+    ),
+    collapse = "\n"
+  )
+
   who_map_text_theme <- theme(
     plot.title = element_text(
       color = who_map_col("title"),
