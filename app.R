@@ -205,7 +205,7 @@ sidebar_ui <- function() {
 
           tags$hr(),
           tags$p(tags$em(
-            "For more details, see the ",
+            "Methodology note: For more details, see the ",
             tags$a(
               href = "https://github.com/WHO-Collaboratory/seasonal-risk-assessment#how-it-works",
               target = "_blank",
@@ -305,12 +305,12 @@ welcome_ui <- function() {
     div(
       class = "welcome-screenshots",
       welcome_screenshot_ui(
-        src = "WHO Seasonal Risk Assessment Tool Workbook (SAMPLE).png",
+        src = "WHO Seasonal Risk Assessment Tool Workbook (EXAMPLE).png",
         alt = "A filled-in example WHO Seasonal Risk Assessment Excel workbook",
         caption = "The Excel workbook: indicators, weights, and scores are defined here before upload."
       ),
       welcome_screenshot_ui(
-        src = "WHO Seasonal Risk Assessment Shiny App.png",
+        src = "WHO Seasonal Risk Assessment Tool Shiny App.png",
         alt = "The WHO Seasonal Risk Assessment Shiny app, showing a results table and risk maps",
         caption = "This app: composite risk tables and maps generated from your uploaded workbook."
       )
@@ -318,7 +318,7 @@ welcome_ui <- function() {
 
     tags$p(
       class = "welcome-footnote",
-      "For more details, see the ",
+      "Methodology note: For more details, see the ",
       tags$a(
         href = "https://github.com/WHO-Collaboratory/seasonal-risk-assessment#how-it-works",
         target = "_blank",
@@ -361,6 +361,8 @@ main_ui <- function() {
       }
       .pagination .page-item.disabled .page-link {
         background-color: #f7ba5b !important;
+        color: #7a4e00 !important;
+        cursor: not-allowed;
       }
       .map-grid {
         display: grid;
