@@ -60,7 +60,9 @@ vis_scores <- function(
       size = 9,
       lineheight = 1.1
     ),
-    legend.position = "bottom"
+    legend.position = "bottom",
+    legend.title = element_text(size = 12, face = "bold", hjust = 0.5),
+    legend.text = element_text(size = 10, face = "bold")
   )
 
   ggplot(map_sf) +
@@ -68,9 +70,20 @@ vis_scores <- function(
     scale_fill_gradientn(
       colours = risk_palette,
       limits = c(1, 5),
+      breaks = c(1, 5),
       oob = scales::squish,
       na.value = who_map_col("not_applicable"),
-      name = value_label
+      name = value_label,
+      guide = guide_colorbar(
+        title.position = "top",
+        title.hjust = 0.5,
+        barwidth = unit(160, "pt"),
+        barheight = unit(12, "pt"),
+        frame.colour = "grey30",
+        frame.linewidth = 0.4,
+        ticks.colour = "grey30",
+        ticks.linewidth = 0.4
+      )
     ) +
     labs(
       title = title,
