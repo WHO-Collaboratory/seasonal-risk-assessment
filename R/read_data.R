@@ -1,5 +1,14 @@
 #' Read scores and groupings from data file provided
 #'
+#' @details The \code{groupings} in the returned list assign indicators to
+#'   pillars with \strong{equal} weights within each pillar — they do not
+#'   reflect the actual indicator/pillar weights entered in the "4. Define
+#'   Weights" sheet. The Shiny app does not use these groupings for scoring;
+#'   it builds its own weighted groupings from "4. Define Weights" (see
+#'   \code{indicator_groupings()} / \code{pillar_weightings()} in
+#'   \code{app.R}) before calling \code{get_risks()}. Use this function's
+#'   \code{groupings} only for indicator/pillar membership, not weights.
+#'
 #' @importFrom readxl read_excel
 #'
 #' @author Finlay Campbell
@@ -31,7 +40,7 @@ read_data <- function(path) {
   indicator_meta <- readxl::read_excel(
     path,
     sheet = "2. Define Indicators",
-    skip = 5 # skip to row containing column names
+    skip = 7 # skip to row containing column names
   ) |>
     filter(Include)
 

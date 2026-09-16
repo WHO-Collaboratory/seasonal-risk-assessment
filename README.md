@@ -16,6 +16,19 @@ A Shiny application that visualizes results from the WHO Seasonal Risk Assessmen
 
 Indicator scores are normalized, weighted within each pillar, and combined into pillar scores, which are then weighted into a composite score for each subnational area. The three-pillar structure is fixed, while indicators, normalization approaches, and weights are defined by the user. This allows the tool to be adapted to various hazards and geographies without requiring changes to the underlying methodology. Guidance for adaptation is provided in the workbook.
 
+### Scoring methodology
+
+The composite score is a two-level weighted sum:
+
+```
+Pillar Score            = Σ (Indicator Weight × Indicator Score)     — within each pillar
+Composite Risk Score    = Σ (Pillar Weight × Pillar Score)           — across the three pillars
+```
+
+Indicator weights must sum to 100% within each pillar; pillar weights must sum to 100% overall (the app and workbook both validate this). A given indicator's total contribution to the Composite Risk Score — its **Overall Weight** — is `Pillar Weight × Indicator Weight`; this is what the workbook's "4. Define Weights" sheet reports in column I, and what the app's *Weight breakdown* sidebar tab shows live for the currently active weights.
+
+**Weights are matched by pillar/indicator name, not by row or column position.** Neither the Excel workbook nor the app assume pillars or indicators appear in any particular order — a pillar weight always applies to the pillar it's labeled with, regardless of which row it occupies in "4. Define Weights" or which order sliders are drawn in the app.
+
 ![The Shiny app's Composite Risk Scores tab, showing a results table and Exposure/Vulnerability/Coping Capacity/Composite maps for Ukraine](www/WHO%20Seasonal%20Risk%20Assessment%20Tool%20Shiny%20App.png)
 
 ## Repository structure
@@ -91,7 +104,7 @@ The workbook (`data/WHO Seasonal Risk Assessment Tool (TEMPLATE).xlsx`) drives a
 | 1. Describe Your Emergency | Country/territory and emergency context (country name is read from cell D6) |
 | 2. Define Indicators | Indicator catalogue, with pillar assignment and an "Include" flag |
 | 3. Enter Indicator Scores | Per-region scores for each included indicator |
-| 4. Define Weights | Pillar weights (B8:C11) and indicator weights (columns F:I) |
+| 4. Define Weights | Pillar weights (B8:C11) and indicator weights (columns F:I), including each indicator's Overall Weight (Pillar Weight × Indicator Weight) — see [Scoring methodology](#scoring-methodology) |
 | 5. Weighted Indicator Scores | Reference calculations within Excel |
 | 6. Composite Risk Scores | Reference calculations within Excel |
 | 7. Indicator Correlations | Automatic pairwise correlation matrix flagging redundant indicators |

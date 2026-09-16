@@ -66,7 +66,7 @@ whomapper_error_message <- function(e) {
 ## --- Download/Upload Data --------------------------------------------
 app_header_actions_ui <- function() {
   div(
-    class = "d-flex align-items-center gap-2 ms-auto",
+    class = "d-flex align-items-center gap-2 ms-auto app-header-actions",
 
     actionButton(
       "open_upload_modal",
@@ -200,6 +200,32 @@ sidebar_ui <- function() {
             )
           ),
 
+          tags$h5("How scoring works"),
+          tags$p(
+            "Within each pillar, indicator scores are combined using ",
+            "indicator weights: ",
+            tags$code("Pillar Score = Σ (Indicator Weight × Indicator Score)"),
+            "."
+          ),
+          tags$p(
+            "The three pillar scores are then combined using pillar ",
+            "weights: ",
+            tags$code(
+              "Composite Risk Score = Σ (Pillar Weight × Pillar Score)"
+            ),
+            "."
+          ),
+          tags$p(
+            "Pillar and indicator weights are matched to their pillar/",
+            "indicator by ",
+            tags$strong("name"),
+            ", not by row order in the workbook, so the order pillars or ",
+            "indicators are listed in never changes which weight applies ",
+            "to which one. See the ",
+            tags$strong("Weight breakdown"),
+            " tab for the exact weights currently in effect."
+          ),
+
           tags$h5("Notes"),
           tags$ul(
             tags$li(
@@ -236,6 +262,33 @@ sidebar_ui <- function() {
         title = "Select Indicator Weights",
         uiOutput("indicator_weights"),
         uiOutput("indicator_validation_msg")
+      ),
+      ### --- Weight breakdown -------------------------------------------
+      tabPanel(
+        title = "Weight breakdown",
+        tags$div(
+          class = "p-2",
+          tags$p(
+            class = "small text-muted",
+            "Shows exactly how the current pillar and indicator weights ",
+            "combine to produce the Composite Risk Score:"
+          ),
+          tags$p(
+            tags$code(
+              "Overall Weight = Pillar Weight × Indicator Weight"
+            ),
+            class = "small"
+          ),
+          tags$p(
+            class = "small text-muted",
+            "An indicator's Overall Weight is its total contribution to ",
+            "the Composite Risk Score. Pillar and indicator weights are ",
+            "matched by pillar/indicator name, not by row order, so ",
+            "reordering pillars or indicators never changes which weight ",
+            "applies to which one."
+          ),
+          uiOutput("weight_breakdown")
+        )
       )
     )
   )
@@ -535,35 +588,37 @@ global_css <- function() {
       }
 
       /* Header buttons */
-      .bslib-page-title .btn {
+      .app-header-actions .btn {
         font-weight: 600;
         padding: 6px 14px;
       }
 
       /* Keep buttons compact in header */
-      .bslib-page-title .btn i {
+      .app-header-actions .btn i {
         margin-right: 6px;
       }
 
       /* Helper text spacing */
-      .bslib-page-title .text-muted,
-      .bslib-page-title .text-warning {
+      .app-header-actions .text-muted,
+      .app-header-actions .text-warning {
         margin-top: 2px;
       }
 
-      /* Disabled primary button – visually distinct but readable */
-      .bslib-page-title .btn.btn-primary.btn-disabled {
-          background-color: #6c757d !important;
-          border-color: #6c757d !important;
+      /* Disabled primary button – washed-out/greyed-out so it visibly
+         reads as inactive, rather than relying on the icon alone */
+      .app-header-actions .btn.btn-primary.btn-disabled {
+          background-color: #e9ecef !important;
+          border-color: #ced4da !important;
 
-          color: #ffffff !important;
-          cursor: not-allowed;
+          color: #6c757d !important;
+          opacity: 0.65;
+          cursor: not-allowed !important;
           pointer-events: none;
         }
 
-      .bslib-page-title .btn.btn-primary.btn-disabled:hover {
-          background-color: #6c757d !important;
-          border-color: #6c757d !important;
+      .app-header-actions .btn.btn-primary.btn-disabled:hover {
+          background-color: #e9ecef !important;
+          border-color: #ced4da !important;
         }
       "
     ))
@@ -724,11 +779,32 @@ server <- function(input, output, session) {
   observeEvent(input$upload_data, {
     tryCatch(
       {
-        weights$pillar <- readxl::read_excel(
+        raw_pillar_weights_tbl <- readxl::read_excel(
           input$upload_data$datapath,
           sheet = "4. Define Weights",
-          range = "B8:C11" # Align with Step 4A. Define Pillar Weights table
-        ) |>
+          range = "B7:C15", # wide enough to cover Step 4A regardless of its exact row
+          col_names = FALSE
+        )
+
+        # Locate the "Pillar" header row dynamically rather than assuming a
+        # fixed row number, since editing the Instructions text above this
+        # table shifts it down and previously broke a hardcoded range.
+        pillar_header_row <- which(raw_pillar_weights_tbl[[1]] == "Pillar")[1]
+        if (is.na(pillar_header_row)) {
+          stop("Could not find the 'Pillar' header in Step 4A's table.")
+        }
+
+        # Data rows run from just below the header down to (but not
+        # including) the "TOTAL" row.
+        total_row <- which(raw_pillar_weights_tbl[[1]] == "TOTAL")[1]
+        if (is.na(total_row) || total_row <= pillar_header_row) {
+          stop("Could not find the 'TOTAL' row in Step 4A's table.")
+        }
+
+        weights$pillar <- raw_pillar_weights_tbl |> # Align with Step 4A. Define Pillar Weights table
+          rlang::set_names(unlist(raw_pillar_weights_tbl[pillar_header_row, ])) |>
+          dplyr::slice((pillar_header_row + 1):(total_row - 1)) |>
+          dplyr::mutate(`Pillar Weight` = as.numeric(`Pillar Weight`)) |>
           as.data.frame()
 
         raw_indicator_weights_tbl <- readxl::read_excel(
@@ -771,8 +847,36 @@ server <- function(input, output, session) {
     req(weights$pillar, weights$indicator)
 
     # Initial validation
-    pillar_check <- validate_pillar_weights(weights$pillar)
-    indicator_check <- validate_indicator_weights(weights$indicator)
+    validation <- tryCatch(
+      list(
+        pillar_check = validate_pillar_weights(weights$pillar),
+        indicator_check = validate_indicator_weights(weights$indicator)
+      ),
+      error = function(e) {
+        showNotification(
+          paste(
+            "Couldn't validate pillar and indicator weights from this",
+            "workbook. Make sure you uploaded the WHO Seasonal Risk",
+            "Assessment Tool template, with the '4. Define Weights' sheet",
+            "intact and in its original layout.",
+            paste0("(Details: ", conditionMessage(e), ")")
+          ),
+          type = "error",
+          duration = NULL
+        )
+        message("ERROR validating weights from upload: ", conditionMessage(e))
+        NULL
+      }
+    )
+
+    if (is.null(validation)) {
+      weights$pillar <- NULL
+      weights$indicator <- NULL
+      return()
+    }
+
+    pillar_check <- validation$pillar_check
+    indicator_check <- validation$indicator_check
 
     if (!pillar_check$valid || any(!indicator_check$valid)) {
       msg <- c()
@@ -937,27 +1041,50 @@ server <- function(input, output, session) {
 
   ## --- Risk computation ----------------------------------------------
   observe({
-    req(data(), weights$pillar, weights$indicator)
+    req(data(), weights$pillar, weights$indicator, weights_valid())
 
-    values$groupings <- indicator_groupings()
-    values$weightings <- pillar_weightings()
+    tryCatch(
+      {
+        values$groupings <- indicator_groupings()
+        values$weightings <- pillar_weightings()
 
-    values$weightings_table <- map_dfr(
-      seq_along(values$weightings),
-      \(x) {
-        tibble(
-          pillar = names(values$groupings)[x],
-          metric = names(values$groupings[[x]]),
-          pillar_weight = values$weightings[x],
-          metric_weight = values$groupings[[x]],
-          total_weight = values$weightings[x] * values$groupings[[x]]
+        values$weightings_table <- map_dfr(
+          seq_along(values$weightings),
+          \(x) {
+            tibble(
+              pillar = names(values$groupings)[x],
+              metric = names(values$groupings[[x]]),
+              pillar_weight = values$weightings[x],
+              metric_weight = values$groupings[[x]],
+              total_weight = values$weightings[x] * values$groupings[[x]]
+            )
+          }
         )
+        values$risks <- get_risks(
+          groupings = values$groupings,
+          scores = data()$scores,
+          weightings = values$weightings
+        )
+      },
+      error = function(e) {
+        showNotification(
+          paste(
+            "Couldn't calculate risk scores. This usually means a Pillar",
+            "name in the indicator weights table (Step 4B) doesn't exactly",
+            "match a pillar name in the pillar weights table (Step 4A) —",
+            "check for typos, extra spaces, or inconsistent capitalization",
+            "in the 'Pillar' column of the '4. Define Weights' sheet.",
+            paste0("(Details: ", conditionMessage(e), ")")
+          ),
+          type = "error",
+          duration = NULL
+        )
+        message("ERROR computing risks: ", conditionMessage(e))
+        values$risks <- NULL
+        values$groupings <- NULL
+        values$weightings <- NULL
+        values$weightings_table <- NULL
       }
-    )
-    values$risks <- get_risks(
-      groupings = values$groupings,
-      scores = data()$scores,
-      weightings = values$weightings
     )
   })
 
@@ -1006,8 +1133,55 @@ server <- function(input, output, session) {
     )
   }
 
-  weights_invalid_message <- function() {
-    tags$p("Tables are disabled until all weights sum to 100%.")
+  weights_invalid_message <- function(content = "Tables") {
+    pv <- pillar_validation()
+    iv <- indicator_validation()
+
+    issues <- list()
+
+    if (!pv$valid) {
+      issues <- c(
+        issues,
+        list(
+          sprintf(
+            paste0(
+              "Pillar weights sum to %.1f%% (off by %+0.1f%%). Fix this ",
+              "under Select Pillar Weights."
+            ),
+            pv$total * 100,
+            pv$off_by * 100
+          )
+        )
+      )
+    }
+
+    bad_indicators <- iv |> filter(!valid)
+
+    if (nrow(bad_indicators) > 0) {
+      issues <- c(
+        issues,
+        lapply(seq_len(nrow(bad_indicators)), function(i) {
+          sprintf(
+            paste0(
+              "%s indicator weights sum to %.1f%% (off by %+0.1f%%). Fix ",
+              "this under Select Indicator Weights > %s."
+            ),
+            bad_indicators$Pillar[i],
+            bad_indicators$total[i] * 100,
+            bad_indicators$off_by[i] * 100,
+            bad_indicators$Pillar[i]
+          )
+        })
+      )
+    }
+
+    tagList(
+      tags$p(sprintf(
+        "%s are disabled until all weights sum to 100%%:",
+        content
+      )),
+      tags$ul(lapply(issues, tags$li))
+    )
   }
 
   output$table_overall <- renderUI({
@@ -1105,10 +1279,6 @@ server <- function(input, output, session) {
   outputOptions(output, "table_exposure", suspendWhenHidden = FALSE)
   outputOptions(output, "table_vulnerability", suspendWhenHidden = FALSE)
   outputOptions(output, "table_coping_capacity", suspendWhenHidden = FALSE)
-  outputOptions(output, "table_overall_dt", suspendWhenHidden = FALSE)
-  outputOptions(output, "table_exposure_dt", suspendWhenHidden = FALSE)
-  outputOptions(output, "table_vulnerability_dt", suspendWhenHidden = FALSE)
-  outputOptions(output, "table_coping_capacity_dt", suspendWhenHidden = FALSE)
 
   ## --- Maps ----------------------------------------------------------
   observe({
@@ -1145,12 +1315,10 @@ server <- function(input, output, session) {
   })
 
   output$maps <- renderUI({
-    req(weights_valid())
-
     if (!weights_valid()) {
       div(
         class = "text-danger",
-        "Maps are disabled until all weights sum to 100%."
+        weights_invalid_message("Maps")
       )
     } else {
       validate(need(!is.null(data()), "No valid data available."))
@@ -1341,6 +1509,60 @@ server <- function(input, output, session) {
     }
   })
 
+  output$weight_breakdown <- renderUI({
+    if (is.null(input$upload_data)) {
+      return(tags$div(
+        class = "p-2",
+        tags$h5("No workbook uploaded"),
+        tags$p(
+          "Upload a completed workbook to see how pillar and indicator ",
+          "weights combine into each indicator's overall contribution to ",
+          "the Composite Risk Score."
+        )
+      ))
+    }
+
+    req(values$weightings_table)
+
+    rows_by_pillar <- split(values$weightings_table, values$weightings_table$pillar)
+
+    tagList(
+      lapply(names(rows_by_pillar), function(p) {
+        pillar_rows <- rows_by_pillar[[p]]
+
+        tags$table(
+          class = "table table-sm small mb-3",
+          tags$thead(
+            tags$tr(
+              tags$th(
+                colspan = 3,
+                sprintf(
+                  "%s (pillar weight %s)",
+                  p,
+                  scales::percent(pillar_rows$pillar_weight[1])
+                )
+              )
+            ),
+            tags$tr(
+              tags$th("Indicator"),
+              tags$th("Indicator weight"),
+              tags$th("Overall weight")
+            )
+          ),
+          tags$tbody(
+            lapply(seq_len(nrow(pillar_rows)), function(i) {
+              tags$tr(
+                tags$td(pillar_rows$metric[i]),
+                tags$td(scales::percent(pillar_rows$metric_weight[i])),
+                tags$td(scales::percent(pillar_rows$total_weight[i]))
+              )
+            })
+          )
+        )
+      })
+    )
+  })
+
   ## --- Workbook upload/download --------------------------------------
   show_upload_modal <- function() {
     showModal(
@@ -1378,15 +1600,18 @@ server <- function(input, output, session) {
 
   output$header_download_button <- renderUI({
     btn_class <- "btn btn-primary"
-    btn_icon <- icon("download")
-    warning_text <- NULL
+    btn_title <- NULL
 
     if (is.null(input$upload_data)) {
       btn_class <- "btn btn-primary btn-disabled"
-      btn_icon <- icon("lock")
+      btn_title <- "Upload a workbook before downloading"
     } else if (!weights_valid()) {
       btn_class <- "btn btn-primary btn-disabled"
-      btn_icon <- icon("lock")
+      btn_title <- paste(
+        "Can't download: pillar and/or indicator weights don't sum to",
+        "100%. Adjust the weights until the validation messages show a",
+        "checkmark, then try downloading again."
+      )
     }
 
     div(
@@ -1394,8 +1619,9 @@ server <- function(input, output, session) {
       downloadButton(
         "download_updated_file",
         label = "Download workbook",
-        icon = btn_icon,
-        class = btn_class
+        icon = icon("download"),
+        class = btn_class,
+        title = btn_title
       )
     )
   })
@@ -1515,14 +1741,14 @@ server <- function(input, output, session) {
           if ("4. Define Weights" %in% sheet_list) {
             pillar_data <- pillar_weights_updated()
 
-            # Row 8 = headers, Rows 9-11 = data
+            # Row 9 = headers, Rows 10-12 = data
             if (wb_type == "openxlsx2") {
               # openxlsx2 syntax
               wb <- openxlsx2::wb_add_data(
                 wb,
                 sheet = "4. Define Weights",
                 x = pillar_data,
-                start_row = 9,
+                start_row = 10,
                 start_col = 2,
                 col_names = FALSE
               )
@@ -1532,7 +1758,7 @@ server <- function(input, output, session) {
                 wb,
                 sheet = "4. Define Weights",
                 x = pillar_data,
-                startRow = 9,
+                startRow = 10,
                 startCol = 2,
                 colNames = FALSE
               )
@@ -1549,13 +1775,13 @@ server <- function(input, output, session) {
               ind_weights <- indicator_data[["Indicator Weight"]]
 
               # Write just the Indicator Weight column values
-              # Row 8 = column headers, Rows 9+ = data
+              # Row 9 = column headers, Rows 10+ = data
               if (wb_type == "openxlsx2") {
                 wb <- openxlsx2::wb_add_data(
                   wb,
                   sheet = "4. Define Weights",
                   x = as.data.frame(ind_weights),
-                  start_row = 9,
+                  start_row = 10,
                   start_col = 8,
                   col_names = FALSE
                 )
@@ -1564,7 +1790,7 @@ server <- function(input, output, session) {
                   wb,
                   sheet = "4. Define Weights",
                   x = ind_weights,
-                  startRow = 9,
+                  startRow = 10,
                   startCol = 8,
                   colNames = FALSE
                 )
