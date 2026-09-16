@@ -21,6 +21,16 @@ options(
   shiny.devmode = FALSE
 )
 
+# whomapper::pull_sfs() fetches subnational boundaries from the WHO ArcGIS
+# service over the network (via sf::st_read/GDAL) with no timeout of its
+# own, so a slow or unresponsive upstream can hang indefinitely with no
+# feedback to the user. Bound the connect and total transfer time so a
+# dead/slow upstream fails fast instead of hanging the whole session.
+Sys.setenv(
+  GDAL_HTTP_CONNECTTIMEOUT = "10",
+  GDAL_HTTP_TIMEOUT = "30"
+)
+
 
 # --- Helper functions -------------------------------------------------
 helper_files <- file.path(
@@ -653,27 +663,59 @@ server <- function(input, output, session) {
           adm_level = 1,
           iso3 = iso3_from_country(), # Aligns with Country / Territory value entered in 1. Describe Your Emergency
           query_server = TRUE
-        ) %>%
+        )
+
+        # whomapper's own HTTP layer swallows real network/upstream errors
+        # (it just message()s "failed to pull data" and returns NULL) instead
+        # of raising a catchable condition, so we check for that case
+        # explicitly rather than letting a downstream NULL produce a
+        # confusing, unrelated error.
+        if (is.null(result)) {
+          stop(errorCondition(
+            paste0(
+              "Could not retrieve subnational boundaries from the WHO ",
+              "boundary service for '",
+              iso3_from_country(),
+              "'. This usually means the service is temporarily unreachable ",
+              "or the network request failed. Please check your connection ",
+              "and try again in a moment."
+            ),
+            class = "shape_lookup_error"
+          ))
+        }
+
+        result <- result %>%
           # Field name is truncated to 10 characters server-side (shapefile/DBF limit)
           rename(`Subnational Level` = adm1_viz_n)
 
         if (nrow(result) == 0) {
-          stop(
-            "No subnational boundaries were returned for '",
-            iso3_from_country(),
-            "'. The WHO boundary service may not have data for this ",
-            "country/territory, or the ISO3 code may be unrecognized."
-          )
+          stop(errorCondition(
+            paste0(
+              "No subnational boundaries were returned for '",
+              iso3_from_country(),
+              "'. The WHO boundary service may not have data for this ",
+              "country/territory, or the ISO3 code may be unrecognized."
+            ),
+            class = "shape_lookup_error"
+          ))
         }
 
         result
       },
       error = function(e) {
+        # Errors we raise ourselves above are already specific and
+        # actionable; only wrap genuinely unexpected whomapper/internal
+        # errors with the generic "raised an error" boilerplate.
         showNotification(
-          whomapper_error_message(e),
+          if (inherits(e, "shape_lookup_error")) {
+            conditionMessage(e)
+          } else {
+            whomapper_error_message(e)
+          },
           type = "error",
           duration = NULL
         )
+        message("ERROR reading shape from upload: ", conditionMessage(e))
         NULL
       }
     )
@@ -1385,6 +1427,20 @@ server <- function(input, output, session) {
           indicator_data_check <- indicator_weights_updated()
 
           weights_check <- weights_valid()
+
+          if (!weights_check) {
+            showNotification(
+              paste(
+                "Can't download: pillar and/or indicator weights don't sum",
+                "to 100%. Adjust the weights until the validation messages",
+                "show a checkmark, then try downloading again."
+              ),
+              type = "error",
+              duration = NULL
+            )
+          }
+
+          req(weights_check)
 
           validate(
             need(
