@@ -1,0 +1,15 @@
+.Rproj.user
+.Rhistory
+.DS_Store
+archive/
+.Renviron
+rsconnect/
+seasonal-risk-assessment.Rproj
+
+
+# Excel temporary / lock files
+~$*.xlsx
+
+# WHO emblem (not redistributed in repo)
+www/who-logo.png
+
