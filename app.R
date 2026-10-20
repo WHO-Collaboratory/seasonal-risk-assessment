@@ -231,11 +231,18 @@ sidebar_ui <- function() {
             "in that pillar are rescaled to sum to 100%, so a blank is ",
             "never counted as 0."
           ),
+          # TODO(multiplicative-score): this wording (and the matching
+          # "Weight breakdown" text below) explains pillar weights as
+          # exponents in plain language. Get the methodology owner/WHO to
+          # review it, and keep it consistent with the README and the
+          # workbook Instructions once those are updated.
           tags$p(
-            "The three pillar scores are then combined using pillar ",
-            "weights: ",
+            "The three pillar scores are then combined ",
+            tags$strong("multiplicatively"),
+            " using pillar weights, so a weak pillar pulls the composite ",
+            "down rather than being averaged away by the other two: ",
             tags$code(
-              "Composite Risk Score = Σ (Pillar Weight × Pillar Score)"
+              "Composite Risk Score = Π (Pillar Score ^ Pillar Weight)"
             ),
             "."
           ),
@@ -281,21 +288,30 @@ sidebar_ui <- function() {
             tags$p(
               class = "small text-muted",
               "Shows exactly how the current pillar and indicator weights ",
-              "combine to produce the Composite Risk Score:"
+              "combine to produce the Composite Risk Score. Indicator ",
+              "weights determine each indicator's share of its own pillar's ",
+              "score (a weighted sum); pillar weights then determine each ",
+              "pillar's influence on the composite score (a weighted ",
+              "geometric mean, since pillars combine ",
+              tags$strong("multiplicatively"),
+              "):"
             ),
             tags$p(
               tags$code(
-                "Overall Weight = Pillar Weight × Indicator Weight"
+                "Composite Risk Score = Π (Pillar Score ^ Pillar Weight)"
               ),
               class = "small"
             ),
             tags$p(
               class = "small text-muted",
-              "An indicator's Overall Weight is its total contribution to ",
-              "the Composite Risk Score. Pillar and indicator weights are ",
-              "matched by pillar/indicator name, not by row order, so ",
-              "reordering pillars or indicators never changes which weight ",
-              "applies to which one."
+              "Because pillars combine multiplicatively, there's no single ",
+              "\"overall weight\" percentage for an indicator's contribution ",
+              "to the composite the way there would be under a simple ",
+              "weighted sum — a pillar's weight instead scales how sharply ",
+              "that pillar's score pulls the composite up or down. Pillar ",
+              "and indicator weights are matched by pillar/indicator name, ",
+              "not by row order, so reordering pillars or indicators never ",
+              "changes which weight applies to which one."
             )
           ),
           uiOutput("weight_breakdown")
@@ -1215,8 +1231,7 @@ server <- function(input, output, session) {
               pillar = names(values$groupings)[x],
               metric = names(values$groupings[[x]]),
               pillar_weight = values$weightings[x],
-              metric_weight = values$groupings[[x]],
-              total_weight = values$weightings[x] * values$groupings[[x]]
+              metric_weight = values$groupings[[x]]
             )
           }
         )
@@ -1799,9 +1814,9 @@ server <- function(input, output, session) {
         class = "p-2",
         tags$h5("No workbook uploaded"),
         tags$p(
-          "Upload a completed workbook to see how pillar and indicator ",
-          "weights combine into each indicator's overall contribution to ",
-          "the Composite Risk Score."
+          "Upload a completed workbook to see how indicator weights ",
+          "combine into each pillar's score, and how pillar weights ",
+          "then shape each pillar's influence on the Composite Risk Score."
         )
       ))
     }
@@ -1822,7 +1837,7 @@ server <- function(input, output, session) {
           tags$thead(
             tags$tr(
               tags$th(
-                colspan = 3,
+                colspan = 2,
                 sprintf(
                   "%s (pillar weight %s)",
                   p,
@@ -1832,16 +1847,14 @@ server <- function(input, output, session) {
             ),
             tags$tr(
               tags$th("Indicator"),
-              tags$th("Indicator weight"),
-              tags$th("Overall weight")
+              tags$th("Indicator weight")
             )
           ),
           tags$tbody(
             lapply(seq_len(nrow(pillar_rows)), function(i) {
               tags$tr(
                 tags$td(pillar_rows$metric[i]),
-                tags$td(scales::percent(pillar_rows$metric_weight[i])),
-                tags$td(scales::percent(pillar_rows$total_weight[i]))
+                tags$td(scales::percent(pillar_rows$metric_weight[i]))
               )
             })
           )

@@ -101,6 +101,12 @@ test_that("valid workbooks have consistent weights and score end to end", {
   }
 })
 
+# TODO(multiplicative-score): the test above only checks that get_risks()
+# returns no NAs. Add focused unit tests for the weighted geometric mean:
+# a hand-computed composite, equal pillars equalling their common score, a
+# pillar weight of 0 being ignored, an entirely blank pillar giving NA, and
+# the composite staying within the range of the indicator scores.
+
 test_that("workbooks from the old (pre-slot) template still read", {
   # copy of the EXAMPLE as it was before the slot redesign
   d <- read_data(wb("old_layout_example"))

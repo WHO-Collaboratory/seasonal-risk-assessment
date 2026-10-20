@@ -18,18 +18,22 @@ A Shiny application that visualizes results from the WHO Seasonal Risk Assessmen
 2. Indicator scores within a pillar are combined using **indicator weights**; the three pillar scores are combined using **pillar weights** to produce a **Composite Risk Score** per region.
 3. The Shiny app lets a user upload a completed workbook, review the resulting scores in tables and maps, and interactively adjust weights (without editing Excel) to test alternative assumptions. This all takes place in-session, without overwriting the uploaded file. Updated weights can be exported as a copy of the workbook.
 
-Analysts normalize each indicator onto a common score scale in the workbook (1-5 is recommended, with higher meaning higher risk). The scores are then weighted within each pillar and combined into pillar scores, which are weighted into a composite score for each subnational area. The three-pillar structure is fixed, while indicators, normalization approaches, and weights are defined by the user. This allows the tool to be adapted to various hazards and geographies without requiring changes to the underlying methodology. Guidance for adaptation is provided in the workbook.
+Analysts normalize each indicator onto a common score scale in the workbook (1-5 is recommended, with higher meaning higher risk). The scores are then weighted within each pillar and combined into pillar scores, which are then combined multiplicatively into a composite score for each subnational area. The three-pillar structure is fixed, while indicators, normalization approaches, and weights are defined by the user. This allows the tool to be adapted to various hazards and geographies without requiring changes to the underlying methodology. Guidance for adaptation is provided in the workbook.
 
 ### Scoring methodology
 
-The composite score is a two-level weighted sum:
+<!-- TODO(multiplicative-score): this section describes the app's new multiplicative calculation, but the Excel workbook (sheets 5 and 6) still uses the old additive formula. Do not open the PR until the workbook is ported and the statements below that "the workbook and the app" behave the same are true again. Also update the workbook sheet table further down, and the Overall Weight (column I) note, once the workbook changes. -->
+
+Within each pillar, indicator scores are combined by a weighted sum. Across pillars, the three pillar scores are combined **multiplicatively** — `Risk = Exposure × Vulnerability × Lack of Coping Capacity` — rather than additively, so a pillar close to its minimum pulls the composite score down instead of being averaged away by strong scores in the other two pillars:
 
 ```
 Pillar Score            = Σ (Indicator Weight × Indicator Score)     — within each pillar
-Composite Risk Score    = Σ (Pillar Weight × Pillar Score)           — across the three pillars
+Composite Risk Score    = Π (Pillar Score ^ Pillar Weight)           — across the three pillars
 ```
 
-A given indicator's total contribution to the Composite Risk Score (its **Overall Weight**) is `Pillar Weight × Indicator Weight`. This is what the workbook's "4. Define Weights" sheet reports in column I, and what the app's *Weight breakdown* sidebar tab shows live for the currently active weights.
+The pillar-weight exponents implement a *weighted geometric mean* rather than a raw product, which keeps the Composite Risk Score on the same scale as the pillar scores (e.g. 1-5) instead of the range ballooning under multiplication.
+
+The workbook's "4. Define Weights" sheet reports each indicator's `Pillar Weight × Indicator Weight` in column I ("Overall Weight") as an at-a-glance check that weights are configured correctly. This value is informational only: pillar weights are applied as exponents when the pillars are combined, not as a linear multiplier on each indicator.
 
 **Missing scores:** if an indicator has no score for a place, it is skipped for that place and the other indicators' weights in the pillar are rescaled to sum to 100%, so a blank is never counted as 0. The workbook and the app calculate this the same way. If every indicator in a pillar is blank for a place, that place has no pillar score and no composite score (shown as "-" in the workbook).
 
@@ -43,7 +47,7 @@ Only indicators marked **Include = TRUE** in "2. Define Indicators" are scored. 
 - Weights must be between 0% and 100%.
 - If weights differ within a pillar, give a rationale in "2. Define Indicators". The workbook shows a note if one is missing, but this does not block the results.
 
-Because pillar and composite scores are weighted averages of indicator scores, they always fall within the range of the indicator scores entered.
+Because pillar scores are weighted averages of indicator scores, and the composite is a weighted geometric mean of pillar scores, both always fall within the range of the indicator scores entered.
 
 ![The Shiny app's Composite Risk Scores tab, showing a results table and Exposure/Vulnerability/Coping Capacity/Composite maps for Ukraine](www/Seasonal%20Risk%20Assessment%20Tool%20Shiny%20App.png)
 
