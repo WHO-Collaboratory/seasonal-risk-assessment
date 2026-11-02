@@ -246,6 +246,16 @@ Users are responsible for the interpretation and use of the analyses and outputs
 
 The tool is provided "as is", without warranty of any kind. In no event shall WHO be liable for damages arising from the use of the tool or its outputs. WHO may update, change or withdraw the tool or these terms at any time without notice. See the [License](#license) section for the full terms.
 
+## Acknowledgements
+
+This tool was developed by the WHO Hub for Pandemic and Epidemic Intelligence (Germany), and the WHO Country Office in Ukraine (Ukraine), in coordination with the WHO Regional Office for Europe (Denmark).
+
+Feedback on the methodology was provided by the Health Cluster Ukraine Assessment and Analysis Technical Working Group, which brings together WHO, other United Nations agencies and humanitarian partners working in Ukraine, including the International Organization for Migration (IOM) and the United Nations Children’s Fund (UNICEF).
+
+## Declaration of interests
+
+No conflicts of interest were identified among contributors.
+
 ## License
 
 This repository contains three kinds of material. Each is covered by different terms.
