@@ -178,3 +178,22 @@ test_that("the unfilled template is recognised as blank, and nothing else is", {
     expect_false(workbook_is_blank(wb(name)), info = name)
   }
 })
+
+test_that("only the shipped synthetic example is flagged as illustrative", {
+  # The "ILLUSTRATIVE" map watermark keys off Step 1's description. If the
+  # example workbook's wording is changed so it no longer starts with
+  # "ILLUSTRATIVE EXAMPLE", this fails and the watermark would silently stop.
+  example <- file.path(
+    root, "workbook", "Seasonal Risk Assessment Tool (EXAMPLE).xlsx"
+  )
+  expect_true(is_illustrative_example(example))
+
+  # the empty template, a workbook with Ukraine data but no such description,
+  # and an unreadable path must all stay clean
+  expect_false(is_illustrative_example(
+    file.path(root, "workbook", "Seasonal Risk Assessment Tool.xlsx")
+  ))
+  expect_false(is_illustrative_example(wb("base")))
+  expect_false(is_illustrative_example(wb("blank_template")))
+  expect_false(is_illustrative_example(file.path(root, "no_such_file.xlsx")))
+})

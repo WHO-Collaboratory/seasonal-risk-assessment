@@ -1248,6 +1248,13 @@ server <- function(input, output, session) {
     )
   })
 
+  # TRUE only for the synthetic Ukraine example workbook (it labels itself in
+  # Step 1); its maps get an "ILLUSTRATIVE" watermark, no other workbook's do.
+  is_example <- reactive({
+    req(input$upload_data)
+    is_illustrative_example(input$upload_data$datapath)
+  })
+
   map_sf <- reactive({
     req(values$risks, shape())
 
@@ -1476,7 +1483,8 @@ server <- function(input, output, session) {
               map_sf = map_sf(),
               value = nm,
               title = nm,
-              limits = score_range()
+              limits = score_range(),
+              illustrative = is_example()
             ),
             error = function(e) {
               showNotification(
@@ -1546,7 +1554,8 @@ server <- function(input, output, session) {
             map_sf = map_sf(),
             value = nm,
             title = nm,
-            limits = score_range()
+            limits = score_range(),
+            illustrative = is_example()
           ),
           error = function(e) {
             showNotification(
@@ -1597,7 +1606,8 @@ server <- function(input, output, session) {
           map_sf = map_sf(),
           value = nm,
           title = nm,
-          limits = score_range()
+          limits = score_range(),
+          illustrative = is_example()
         ),
         error = function(e) {
           showNotification(
@@ -1660,7 +1670,8 @@ server <- function(input, output, session) {
             map_sf = map_sf(),
             value = nm,
             title = nm,
-            limits = score_range()
+            limits = score_range(),
+            illustrative = is_example()
           ),
           error = function(e) {
             showNotification(

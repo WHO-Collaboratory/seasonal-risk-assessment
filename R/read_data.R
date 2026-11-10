@@ -142,6 +142,39 @@ workbook_is_blank <- function(path) {
     !filled(read_indicator_weights(path)$`Indicator Weight`)
 }
 
+#' Is the uploaded workbook the synthetic Ukraine example?
+#'
+#' The example workbook that ships with the tool labels itself: its Step 1
+#' description starts with "ILLUSTRATIVE EXAMPLE". The app uses this to put an
+#' "ILLUSTRATIVE" watermark on the maps made from it (and only from it). A
+#' user who writes their own description in Step 1 gets clean maps. Matched on
+#' the start of the text, case-insensitively, so the rest of the wording can
+#' change. Any problem reading the cell counts as "not the example", so this
+#' can never stop a real workbook from loading.
+#'
+#' @param path Path to the workbook.
+is_illustrative_example <- function(path) {
+  tryCatch(
+    {
+      step1 <- suppressMessages(readxl::read_excel(
+        path,
+        sheet = "1. Describe Your Emergency",
+        range = "C1:D30",
+        col_names = FALSE,
+        col_types = "text"
+      ))
+      label <- grepl("Description of Acute Emergency", step1[[1]], fixed = TRUE)
+      if (!any(label)) {
+        return(FALSE)
+      }
+      description <- step1[[2]][which(label)[1]]
+      !is.na(description) &&
+        grepl("^\\s*ILLUSTRATIVE EXAMPLE", description, ignore.case = TRUE)
+    },
+    error = function(e) FALSE
+  )
+}
+
 #' Read scores and groupings from data file provided
 #'
 #' @details The \code{groupings} in the returned list assign indicators to

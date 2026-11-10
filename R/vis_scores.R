@@ -1,10 +1,45 @@
 # Copyright 2026 World Health Organization
 # SPDX-License-Identifier: Apache-2.0
 
+#' Diagonal "ILLUSTRATIVE EXAMPLE" watermark, sized to the plot panel.
+#'
+#' A grid grob whose text size is worked out when it is drawn, as a share of
+#' the panel's width, so it looks the same on the small grid maps, the
+#' enlarged map and the 8 x 6 inch PNG downloads.
+illustrative_watermark <- function() {
+  grid::gTree(cl = "illustrative_watermark")
+}
+
+makeContent.illustrative_watermark <- function(x) {
+  panel_w <- grid::convertWidth(grid::unit(1, "npc"), "points", valueOnly = TRUE)
+  panel_h <- grid::convertHeight(grid::unit(1, "npc"), "points", valueOnly = TRUE)
+  size <- min(panel_w * 0.07, panel_h * 0.11)
+
+  label <- grid::textGrob(
+    "ILLUSTRATIVE EXAMPLE",
+    rot = 22,
+    gp = grid::gpar(
+      fontsize = size,
+      fontface = "bold",
+      col = grDevices::adjustcolor("grey25", alpha.f = 0.28)
+    )
+  )
+  grid::setChildren(x, grid::gList(label))
+}
+registerS3method(
+  "makeContent",
+  "illustrative_watermark",
+  makeContent.illustrative_watermark,
+  envir = asNamespace("grid")
+)
+
 #' Visualise scores on a map.
 #'
 #' @param limits Optional colour-scale limits, c(min, max). \code{NULL}
 #'   stretches the palette over this map's own values.
+#' @param illustrative If \code{TRUE}, draws a diagonal "ILLUSTRATIVE
+#'   EXAMPLE" watermark across the map. The app sets this only for the synthetic
+#'   example workbook (see \code{is_illustrative_example()}).
 #'
 #' @importFrom sf st_centroid
 #'
@@ -17,7 +52,8 @@ vis_scores <- function(
   title = NULL,
   region = "HQ",
   date = Sys.Date(),
-  limits = NULL
+  limits = NULL,
+  illustrative = FALSE
 ) {
   stopifnot(inherits(map_sf, "sf"))
   stopifnot(value %in% names(map_sf))
@@ -88,7 +124,7 @@ vis_scores <- function(
   # stretch the palette over this map's own scores.
   lims <- if (is.null(limits)) score_limits(map_sf[[value]]) else limits
 
-  ggplot(map_sf) +
+  p <- ggplot(map_sf) +
     geom_sf_who_poly(aes(fill = !!sym(value))) +
     scale_fill_gradientn(
       colours = risk_palette(),
@@ -118,4 +154,14 @@ vis_scores <- function(
     disclaimer_labs +
     theme_void() +
     who_map_text_theme
+
+  if (isTRUE(illustrative)) {
+    # drawn last so it sits on top of the polygons
+    p <- p +
+      annotation_custom(
+        illustrative_watermark(),
+        xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf
+      )
+  }
+  p
 }
