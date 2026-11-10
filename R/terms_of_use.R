@@ -199,7 +199,7 @@ terms_of_use_ui <- function() {
           target = "_blank",
           "open an issue"
         ),
-        " or write to collaboratory@who.int."
+        " or write to Collaboratory@who.int."
       )
     )
   )
