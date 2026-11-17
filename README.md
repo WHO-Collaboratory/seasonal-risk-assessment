@@ -194,10 +194,6 @@ testthat::test_file("tests/test_upload_checks.R")
 
 The app reads the values Excel stores when it saves a workbook. Test workbooks must therefore be opened, recalculated and saved in Microsoft Excel. A workbook written by a script, or saved in LibreOffice, will not read correctly.
 
-## Credits
-
-The risk-scoring logic in this app (`R/get_risks.R`, `R/read_data.R`, `R/read_shape.R`, `R/vis_risk_table.R`, `R/vis_scores.R`) was originally written by **Finlay Campbell** ([@finlaycampbell](https://github.com/finlaycampbell)) (WHO).
-
 ## Suggested citation
 
 Citation is welcome but not required. If you cite this tool, please use:
@@ -251,6 +247,14 @@ The tool is provided "as is", without warranty of any kind. In no event shall WH
 This tool was developed by the WHO Hub for Pandemic and Epidemic Intelligence (Germany), and the WHO Country Office in Ukraine (Ukraine), in coordination with the WHO Regional Office for Europe (Denmark).
 
 Feedback on the methodology was provided by the Health Cluster Ukraine Assessment and Analysis Technical Working Group, which brings together WHO, other United Nations agencies and humanitarian partners working in Ukraine, including the International Organization for Migration (IOM) and the United Nations Children’s Fund (UNICEF).
+
+### Contributors
+
+- **Dina Saulo** ([@DinaRaus](https://github.com/DinaRaus)) provided overall project leadership, strategic direction and coordination.
+- **Steve Kerr** ([@smkerr](https://github.com/smkerr)) carried out the development of the project.
+- **Finlay Campbell** ([@finlaycampbell](https://github.com/finlaycampbell)) wrote an earlier version of the risk-scoring logic used in this app (`R/get_risks.R`, `R/read_data.R`, `R/read_shape.R`, `R/vis_risk_table.R`, `R/vis_scores.R`).
+- **Gülce Tuncer** ([@gulcestuncer](https://github.com/gulcestuncer)) contributed to the refinement of the methodology and supported the conceptualization and earlier drafts of the Excel tool.
+- **Juan Pablo Brasdefer** ([@juanbrasdefer](https://github.com/juanbrasdefer)) contributed to the refinement of the methodology.
 
 ## Declaration of interests
 
